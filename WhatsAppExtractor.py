@@ -123,7 +123,7 @@ class WhatsAppExtractor:
     def _process_emojis(message: str, include_emojis: bool) -> str:
         """Process emojis in a message."""
         if include_emojis:
-            return emoji.demojize(message)
+            return message
         else:
             return emoji.replace_emoji(message, replace='')
 
