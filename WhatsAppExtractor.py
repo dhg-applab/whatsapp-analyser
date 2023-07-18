@@ -1,6 +1,7 @@
 import emoji
 import pandas as pd
 import re
+from pathlib import Path
 from typing import Dict, List, Match, Tuple
 from MessageType import MessageType
 
@@ -36,9 +37,9 @@ class WhatsAppExtractor:
         return self._parse_messages(filename)
 
     @staticmethod
-    def _read_file(filename: str):
+    def _read_chat_file(chat_file_path: str):
         """Read the chat messages one by one."""
-        with open(filename, 'r', encoding='utf-8') as file:
+        with open(chat_file_path, 'r', encoding='utf-8') as file:
             content = file.read()
             content = WhatsAppExtractor._filter_nonprintable_characters(content)
             lines = content.split('\n')
@@ -61,11 +62,12 @@ class WhatsAppExtractor:
         """Filter non-printable characters."""
         return re.sub(f'[{WhatsAppExtractor.NONPRINTABLE_CHARACTERS}]', '', text)
 
-    def _parse_messages(self, filename: str) -> pd.DataFrame:
+    def _parse_messages(self, chat_data_path: str) -> pd.DataFrame:
         """Parse chat messages from the chat file."""
         try:
+            chat_file_path = Path(chat_data_path, '_chat.txt').resolve()
             messages = []
-            for line in self._read_file(filename):
+            for line in self._read_chat_file(str(chat_file_path)):
                 timestamp, user, message = self._parse_line(line)
                 preprocessed_message, message_type = self._preprocess_message(message)
                 if self._is_valid_message(timestamp, message, message_type):
