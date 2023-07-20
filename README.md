@@ -13,11 +13,16 @@ A Python program to extract and analyse exported WhatsApp chat data.
 
 ## Usage
 
-1. Unzip the exported WhatsApp chat file.
-2. Initialise the `WhatsAppExtractor` class, and pass the path to the chat file `_chat.txt` as an argument to the `extract_chat_data` method to extract the chat messages.
+1. Export the WhatsApp chat data from WhatsApp.
+2. Unzip the exported WhatsApp chat data.
+3. Initialise the `WhatsAppAnalyser` class with the path to the unzipped directory.
    ```python
-   from WhatsAppExtractor import WhatsAppExtractor
+   from WhatsAppAnalyser import WhatsAppAnalyser
    
-   extractor = WhatsAppExtractor()
-   chat_data = extractor.extract_chat_data('path/to/chat/file/_chat.txt')
+   path_to_chat_data = 'path/to/chat/data'
+   analyser = WhatsAppAnalyser(chat_data_path=path_to_chat_data)
    ```
+
+## Example
+
+An example of how to use the `WhatsAppAnalyser` class is shown in the `example.ipynb` file.
