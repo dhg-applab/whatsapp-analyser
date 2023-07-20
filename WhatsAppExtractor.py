@@ -32,9 +32,9 @@ class WhatsAppExtractor:
         self.include_emojis = include_emojis
         self.min_message_time = pd.to_datetime(min_message_time, format='%d.%m.%y') if min_message_time else None
 
-    def extract_chat_data(self, filename: str) -> pd.DataFrame:
+    def extract_chat_data(self, chat_data_path: str) -> pd.DataFrame:
         """Extract and preprocess chat data."""
-        return self._parse_messages(filename)
+        return self._parse_messages(chat_data_path)
 
     @staticmethod
     def _read_chat_file(chat_file_path: str):
