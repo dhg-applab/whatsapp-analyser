@@ -21,7 +21,7 @@ class WhatsAppExtractor:
     }
 
     NONPRINTABLE_CHARACTERS = '\u200E\u202A\u202C'
-    ATTACHMENT_START_INDEX = 12
+    ATTACHMENT_START_INDEX = 11
     ATTACHMENT_END_INDEX = -1
     FILE_PATTERN = re.compile(r'^(.*) <attached: (.*)>$')
     LOCATION_PATTERN = re.compile(r'^(.*?) \((.*?)\):\shttps://maps\.google\.com/\?q=(-?\d+\.\d+),(-?\d+\.\d+)$')
