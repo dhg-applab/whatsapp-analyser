@@ -6,6 +6,10 @@ from nltk.corpus import stopwords
 from nltk.probability import FreqDist
 from nltk.stem import PorterStemmer, WordNetLemmatizer
 from nltk.tokenize import word_tokenize
+from pathlib import Path
+from torchvision.io import read_image
+from torchvision.models import efficientnet_v2_s, EfficientNet_V2_S_Weights
+from transformers import pipeline
 from typing import List, Tuple
 from MessageType import MessageType
 from WhatsAppExtractor import WhatsAppExtractor
@@ -23,8 +27,10 @@ class WhatsAppAnalyser:
         if chat_data and chat_data_path:
             raise ValueError('chat_data and chat_data_path cannot be set at the same time')
         if chat_data:
+            self.chat_data_path = None
             self.chat_data = chat_data
         elif chat_data_path:
+            self.chat_data_path = chat_data_path
             extractor = WhatsAppExtractor(include_emojis=True)
             self.chat_data = extractor.extract_chat_data(chat_data_path)
         else:
@@ -550,3 +556,65 @@ class WhatsAppAnalyser:
                 continue
         return pd.DataFrame.from_dict(user_average_reply_time, orient='index',
                                       columns=['average_reply_time']).reset_index().rename(columns={'index': 'user'})
+
+    @staticmethod
+    def image_classification(image_path: str) -> str:
+        """Classify the image."""
+        # Read image file
+        img = read_image(image_path)
+
+        # Initialise the model
+        weights = EfficientNet_V2_S_Weights.DEFAULT
+        model = efficientnet_v2_s(weights=weights)
+        model.eval()
+
+        # Initialise the inference transforms
+        preprocess = weights.transforms()
+
+        # Apply inference preprocessing transforms
+        batch = preprocess(img).unsqueeze(0)
+
+        # Perform prediction
+        prediction = model(batch).squeeze(0).softmax(0)
+        class_id = prediction.argmax().item()
+        score = prediction[class_id].item()
+        category_name = weights.meta["categories"][class_id]
+
+        return category_name
+
+    def classify_photos(self,
+                        user: str = None,
+                        start_time: datetime = None,
+                        end_time: datetime = None) -> pd.DataFrame:
+        """Classify photos in the chat."""
+        if self.chat_data_path is None:
+            raise ValueError('To classify photos, the class must be initialised with chat_data_path')
+        filtered_data = self._filter_messages(user, MessageType.PHOTO, start_time, end_time).reset_index(drop=True)
+        filtered_data['photo_category'] = filtered_data['message'].apply(
+            lambda filename: WhatsAppAnalyser.image_classification(str(Path(self.chat_data_path, filename)))
+        )
+        return filtered_data
+
+    @staticmethod
+    def image_captioning(image_paths: List[str], max_tokens: int) -> List[str]:
+        """Caption the images."""
+        captioner = pipeline(model='Salesforce/blip-image-captioning-base')
+        captions = captioner(image_paths, max_new_tokens=max_tokens)
+        captions = [caption[0]['generated_text'] for caption in captions]
+        return captions
+
+    def caption_photos(self,
+                       max_tokens: int = 20,
+                       user: str = None,
+                       start_time: datetime = None,
+                       end_time: datetime = None) -> pd.DataFrame:
+        """Caption photos in the chat."""
+        if self.chat_data_path is None:
+            raise ValueError('To caption photos, the class must be initialised with chat_data_path')
+        filtered_data = self._filter_messages(user, MessageType.PHOTO, start_time, end_time).reset_index(drop=True)
+        image_paths = filtered_data['message'].apply(
+            lambda filename: str(Path(self.chat_data_path, filename))
+        ).tolist()
+        captions = WhatsAppAnalyser.image_captioning(image_paths, max_tokens)
+        filtered_data['photo_caption'] = pd.Series(captions)
+        return filtered_data
