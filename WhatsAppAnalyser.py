@@ -618,3 +618,22 @@ class WhatsAppAnalyser:
         captions = WhatsAppAnalyser.image_captioning(image_paths, max_tokens)
         filtered_data['photo_caption'] = pd.Series(captions)
         return filtered_data
+
+    @staticmethod
+    def offensive_language_identification(messages: List[str]) -> Tuple[List[str], List[float]]:
+        """Identify offensive language in the messages."""
+        classifier = pipeline(model='cardiffnlp/twitter-roberta-base-dec2021-offensive')
+        predictions = classifier(messages)
+        labels, scores = zip(*map(lambda x: x.values(), predictions))
+        return labels, scores
+
+    def identify_offensive_language(self,
+                                    user: str = None,
+                                    start_time: datetime = None,
+                                    end_time: datetime = None) -> pd.DataFrame:
+        """Identify offensive language in the messages."""
+        filtered_data = self._filter_messages(user, MessageType.TEXT, start_time, end_time).reset_index(drop=True)
+        labels, scores = WhatsAppAnalyser.offensive_language_identification(filtered_data['message'].tolist())
+        filtered_data['offensive_language_label'] = pd.Series(labels)
+        filtered_data['offensive_language_score'] = pd.Series(scores)
+        return filtered_data
