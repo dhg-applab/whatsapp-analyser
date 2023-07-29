@@ -37,7 +37,7 @@ class WhatsAppExtractor:
         return self._parse_messages(chat_data_path)
 
     @staticmethod
-    def _read_chat_file(chat_file_path: str):
+    def _read_chat_file(chat_file_path: str) -> List[str]:
         """Read the chat messages one by one."""
         with open(chat_file_path, 'r', encoding='utf-8') as file:
             content = file.read()
