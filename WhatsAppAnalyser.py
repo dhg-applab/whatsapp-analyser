@@ -1,5 +1,7 @@
 import emoji
+import langid
 import nltk
+import nltk.langnames as lgn
 import pandas as pd
 from datetime import datetime, timedelta
 from nltk.corpus import stopwords
@@ -14,6 +16,7 @@ from typing import List, Tuple
 from MessageType import MessageType
 from WhatsAppExtractor import WhatsAppExtractor
 
+nltk.download('bcp47')
 nltk.download('punkt')
 nltk.download('stopwords')
 nltk.download('wordnet')
@@ -22,7 +25,7 @@ nltk.download('wordnet')
 class WhatsAppAnalyser:
     """A class to analyse extracted WhatsApp chat data."""
 
-    def __init__(self, chat_data: pd.DataFrame = None, chat_data_path: str = None):
+    def __init__(self, chat_data: pd.DataFrame = None, chat_data_path: str = None, language: str = None):
         """Initialise WhatsAppAnalyser instance."""
         if chat_data and chat_data_path:
             raise ValueError('chat_data and chat_data_path cannot be set at the same time')
@@ -35,6 +38,23 @@ class WhatsAppAnalyser:
             self.chat_data = extractor.extract_chat_data(chat_data_path)
         else:
             raise ValueError('chat_data or chat_data_path must be set')
+        if language:
+            self.language = language
+        else:
+            self.language = self.detect_language(self.chat_data)
+
+    @staticmethod
+    def detect_language(chat_data, sample_ratio=0.1, min_sample_size=100) -> str:
+        """Detect the language of the chat."""
+        num_messages = len(chat_data)
+        sample_size = min(num_messages, max(round(num_messages * sample_ratio), min_sample_size))
+        sample = chat_data.sample(sample_size)
+        language = langid.classify(sample['message'].str.cat(sep=' '))[0]
+        return lgn.langname(language)
+
+    def set_language(self, language: str):
+        """Set the language of the chat."""
+        self.language = language
 
     def _filter_messages(self,
                          user: str = None,
@@ -234,6 +254,7 @@ class WhatsAppAnalyser:
 
     @staticmethod
     def tokenize(messages: pd.Series,
+                 language: str = 'English',
                  remove_stop_words: bool = False,
                  stemming: bool = False,
                  lemmatization: bool = False) -> List[str]:
@@ -252,7 +273,7 @@ class WhatsAppAnalyser:
 
         # Remove stop words
         if remove_stop_words:
-            stop_words = set(stopwords.words('english'))
+            stop_words = set(stopwords.words(language))
             words = [word for word in words if word not in stop_words]
 
         # Stemming
@@ -275,7 +296,7 @@ class WhatsAppAnalyser:
         """Count the number of words in the text messages."""
         filtered_data = self._filter_messages(user, MessageType.TEXT, start_time, end_time)
         words = pd.Series(WhatsAppAnalyser.tokenize(
-            filtered_data['message'], remove_stop_words)
+            filtered_data['message'], self.language, remove_stop_words)
         )
         return len(words)
 
@@ -287,7 +308,7 @@ class WhatsAppAnalyser:
         filtered_data = self._filter_messages(message_type=MessageType.TEXT, start_time=start_time, end_time=end_time)
         user_word_count = filtered_data.groupby('user').apply(
             lambda x: len(pd.Series(WhatsAppAnalyser.tokenize(
-                filtered_data['message'], remove_stop_words)
+                filtered_data['message'], self.language, remove_stop_words)
             ))
         ).reset_index(name='word_count')
         return user_word_count
@@ -302,7 +323,7 @@ class WhatsAppAnalyser:
         """Count the number of unique words in the text messages."""
         filtered_data = self._filter_messages(user, MessageType.TEXT, start_time, end_time)
         words = pd.Series(WhatsAppAnalyser.tokenize(
-            filtered_data['message'], remove_stop_words, stemming, lemmatization)
+            filtered_data['message'], self.language, remove_stop_words, stemming, lemmatization)
         )
         return words.nunique()
 
@@ -316,7 +337,7 @@ class WhatsAppAnalyser:
         filtered_data = self._filter_messages(message_type=MessageType.TEXT, start_time=start_time, end_time=end_time)
         user_unique_word_count = filtered_data.groupby('user').apply(
             lambda x: pd.Series(WhatsAppAnalyser.tokenize(
-                filtered_data['message'], remove_stop_words, stemming, lemmatization)
+                filtered_data['message'], self.language, remove_stop_words, stemming, lemmatization)
             ).nunique()
         ).reset_index(name='unique_word_count')
         return user_unique_word_count
@@ -324,12 +345,13 @@ class WhatsAppAnalyser:
     @staticmethod
     def calculate_most_common_words(chat_data: pd.DataFrame,
                                     n: int = 10,
+                                    language: str = 'English',
                                     remove_stop_words: bool = False,
                                     stemming: bool = False,
                                     lemmatization: bool = False) -> pd.DataFrame:
         """Calculate the most common n words in the text messages."""
         # Tokenize the messages into words
-        words = WhatsAppAnalyser.tokenize(chat_data['message'], remove_stop_words, stemming, lemmatization)
+        words = WhatsAppAnalyser.tokenize(chat_data['message'], language, remove_stop_words, stemming, lemmatization)
 
         # Calculate the frequency distribution of words
         word_freq = FreqDist(words)
@@ -350,7 +372,7 @@ class WhatsAppAnalyser:
         """Calculate the most common n words in the text messages."""
         filtered_data = self._filter_messages(user, MessageType.TEXT, start_time, end_time)
         most_common_words = WhatsAppAnalyser.calculate_most_common_words(
-            filtered_data, n, remove_stop_words, stemming, lemmatization
+            filtered_data, n, self.language, remove_stop_words, stemming, lemmatization
         )
         return most_common_words
 
@@ -364,7 +386,7 @@ class WhatsAppAnalyser:
         """Calculate the most common n words in the text messages by user."""
         filtered_data = self._filter_messages(message_type=MessageType.TEXT, start_time=start_time, end_time=end_time)
         user_most_common_words = filtered_data.groupby('user').apply(
-            lambda x: WhatsAppAnalyser.calculate_most_common_words(x, n, remove_stop_words, stemming, lemmatization)
+            lambda x: WhatsAppAnalyser.calculate_most_common_words(x, n, self.language, remove_stop_words, stemming, lemmatization)
         )
         return user_most_common_words
 
@@ -632,6 +654,8 @@ class WhatsAppAnalyser:
                                     start_time: datetime = None,
                                     end_time: datetime = None) -> pd.DataFrame:
         """Identify offensive language in the messages."""
+        if self.language != 'English':
+            raise ValueError('Offensive language identification is only supported for English chats.')
         filtered_data = self._filter_messages(user, MessageType.TEXT, start_time, end_time).reset_index(drop=True)
         labels, scores = WhatsAppAnalyser.offensive_language_identification(filtered_data['message'].tolist())
         filtered_data['offensive_language_label'] = pd.Series(labels)
