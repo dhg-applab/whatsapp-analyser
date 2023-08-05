@@ -27,7 +27,7 @@ class WhatsAppExtractor:
     LOCATION_PATTERN = re.compile(r'^(.*?) \((.*?)\):\shttps://maps\.google\.com/\?q=(-?\d+\.\d+),(-?\d+\.\d+)$')
     POLL_PATTERN = re.compile(r'^POLL:\n(.+)\n((?:OPTION: .+ \(\d+ vote[s]?\)\n?){2,})$', re.MULTILINE)
 
-    def __init__(self, include_emojis: bool = False, min_message_time: str = None):
+    def __init__(self, include_emojis: bool = True, min_message_time: str = None):
         """Initialise WhatsAppExtractor instance."""
         self.include_emojis = include_emojis
         self.min_message_time = pd.to_datetime(min_message_time, format='%d.%m.%y') if min_message_time else None
